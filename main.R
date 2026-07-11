@@ -16,7 +16,25 @@ library("tidytable")
 library("parameters")
 #install.packages("parameters")
 
-########################################## File Management
+# 1. set up data
+# 2. visualizations
+# 3. determine best model
+# 4. use best model to run glmm
+# 5. conduct ANOVA/tueky's?
+
+
+##### QUESTIONS:
+# - do I need to find a diff best fit model for location vs sp?
+# ---- ie tweedie for sp, zigam for locations
+
+# - what do the ANOVA and tukey tests tell us relative to the glmm output?
+# ---- ie if the glmm has ** next to the items, but the anova/tukey
+#       return >0.05, does that mean the results are insigificant?
+
+##################################################
+# 1 - FILE MANAGEMENT & DATA
+##################################################
+
 # Read Files for Gardner
 wfish <- read.csv(header = TRUE, "dec16revis.csv")
 wfish
@@ -66,6 +84,12 @@ comboModern = combo[combo$year >= "2000",]
 
 comboHist = combo[combo$year < "2000",]
 
+
+
+##################################################
+# 2 - VISUALIZATIONS
+##################################################
+
 ########################### LOCATION
 
 ### FIGURE - Regional Comparison of 2024 Samples
@@ -94,6 +118,7 @@ ggplot (wfish, aes(y = REGION, x = WHG)) +
   stat_halfeye()
 
 ########################################################
+
 
 ### MODEL - GLMM using ziGamma
 gModelRegion = glmmTMB(
@@ -288,6 +313,13 @@ tukey_zi
 # No other significant differences
 
 ############# MODEL LIST
+
+
+##################################################
+# 3 - MODEL COMPARISONS
+##################################################
+
+
 # Conway-Maxwell Poisson, compois(link = "log")
 modConway = glmmTMB(  
   whg ~ species + (1|year), 
@@ -319,8 +351,8 @@ modZiGamIn = glmmTMB(
 
 # best fit
 
-models <- list(modTwee, modZiGam, modZiGamIn)
-model_names <- c("Tweedie", "ziGamma Log", "ziGamma Inverse")
+models <- list(modTwee, modZiGam)
+model_names <- c("Tweedie", "ziGamma Log")
 
 
 residual_summaries <- map2_df(models, model_names, function(model, name) {
@@ -338,13 +370,25 @@ residual_summaries %>%
   arrange(AIC) %>%
   print()
 
-modFinal <- modZiGam
+modFinal <- modTwee
 
 
 simulateResiduals(fittedModel = modFinal, plot = TRUE)
 summary(modFinal)
 plot(parameters(modFinal))
 
+
+##################################################
+# 3 - FINAL MODEL USED TO EVAL VARIABLES
+##################################################
+
+
+gModTwee = glmmTMB(  
+  WHG ~ REGION, 
+  data = wfish,
+  family= tweedie(link = "log"))
+
+print(summary(gModTwee),show.residuals=TRUE)
 
 ##################################################################################
 
@@ -397,3 +441,16 @@ tukey_cond
 emm_zi = emmeans(cHistAnovaSpecies, ~species, component="zi")
 tukey_zi = pairs(emm_zi, adjust = "tukey")
 tukey_zi
+
+
+###############################################
+
+gModTwee = glmmTMB(  
+  WHG ~ SPECIES, 
+  data = wfish,
+  family= tweedie(link = "log"))
+
+print(summary(gModTwee),show.residuals=TRUE)
+
+
+
