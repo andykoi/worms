@@ -77,11 +77,19 @@ names(combo)[names(combo) == 'species....c.mast.salmon.species..wfish.SPECIES.']
 names(combo)[names(combo) == 'year....c.mast.year..wfish.year.'] <- 'year'
 names(combo)[names(combo) == 'whg....c.mast.whg..wfish.WHG.'] <- 'whg'
 names(combo)[names(combo) == 'set....c.mast.set..wfish.set.'] <- 'set'
+
+### Removed Coho
+combo <- subset(combo, species != "Coho")
+
+
 combo$whg <- as.numeric(combo$whg)
 
 comboModern = combo[combo$year >= "2000",]
 
 comboHist = combo[combo$year < "2000",]
+
+comboHist
+
 
 ##################################################
 # 2 - VISUALIZATIONS
@@ -132,6 +140,17 @@ ggplot(mast, aes(x = year, y = whg, color = salmon.species)) +
   xlab ("Year") +
   xlim (1979, 2020) +
   theme_bw() + guides(color = 'none')
+
+# Boxplot of Species for 2000-2020 + 2024
+boxplot(comboModern$whg ~ comboModern$species,
+        main="Species Comparison of 2024 Samples",
+        xlab="Species", ylab="Nematodes per 100g",
+        #xlab="Species",
+        #ylab="Infection Index (nematodes/gram)",
+        col=c("pink" , "tomato", "#a7cdd6"),
+        border=c("#f06790", "red", "#5894a3")
+)
+ ### WHERE ARE THE COHO COMING FROM???
 
 # VISUALIZATION - Combined sets of WHG over time
 # wfish$year <- c(as.numeric("2024"))
@@ -226,28 +245,27 @@ GStatsSum
 # Conway-Maxwell Poisson, compois(link = "log")
 modConway = glmmTMB(  
   whg ~ species + (1|year), 
-  data = combo,
+  data = comboModern,
   family=
     compois(link = "log"))
-print(summary(SpeciesModel),show.residuals=TRUE)
 
 # tweedie
 modTwee = glmmTMB(  
   whg ~ species + (1|year), 
-  data = combo,
+  data = comboModern,
   family= tweedie(link = "log"))
 
 # ziGamma log
 modZiGam = glmmTMB(  
   whg ~ species + (1|year), 
-  data = combo,
+  data = comboModern,
   ziformula = ~.,
   family=ziGamma("log"))
 
 # ziGamma inverse
 modZiGamIn = glmmTMB(  
   whg ~ species + (1|year), 
-  data = combo,
+  data = comboModern,
   ziformula = ~.,
   family=ziGamma("inverse"))
 
@@ -292,25 +310,26 @@ print(summary(gModTwee),show.residuals=TRUE)
 
 ## Species comparison using 2000-2020 + 2024:
 
-cModAnovaSpecies = glmmTMB(
+cModSpecies = glmmTMB(
   whg ~ species + (1|year),
   data = comboModern,
   family=tweedie("log"),
 )
-print(summary(cModAnovaSpecies),show.residuals=TRUE)
+print(summary(cModSpecies),show.residuals=TRUE)
 
-anova_table_gammapart = glmmTMB:::Anova.glmmTMB(cModAnovaSpecies,type=3,component="cond")
+
+anova_table_gammapart = glmmTMB:::Anova.glmmTMB(cModSpecies,type=3,component="cond")
 anova_table_gammapart
 
 
-anova_table_zipart = glmmTMB:::Anova.glmmTMB(cModAnovaSpecies,type=3,component="zi")
+anova_table_zipart = glmmTMB:::Anova.glmmTMB(cModSpecies,type=3,component="zi")
 anova_table_zipart
 
-emm_cond = emmeans(cModAnovaSpecies, ~species, component="cond")
+emm_cond = emmeans(cModSpecies, ~species, component="cond")
 tukey_cond = pairs(emm_cond, adjust = "tukey")
 tukey_cond
 
-emm_zi = emmeans(cModAnovaSpecies, ~species, component="zi")
+emm_zi = emmeans(cModSpecies, ~species, component="zi")
 tukey_zi = pairs(emm_zi, adjust = "tukey")
 tukey_zi
 
@@ -341,7 +360,6 @@ tukey_zi
 
 
 ## Species comparison using 2024: 
-
 gModTwee = glmmTMB(  
   WHG ~ SPECIES, 
   data = wfish,
@@ -349,5 +367,9 @@ gModTwee = glmmTMB(
 
 print(summary(gModTwee),show.residuals=TRUE)
 
+### CI Table
+nrow(subset(comboModern, species=="Pink"))
+nrow(subset(comboModern, species=="Sockeye"))
+nrow(subset(comboModern, species=="Chum"))
 
-
+confint(cModAnovaSpecies, level=0.95)
